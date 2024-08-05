@@ -110,3 +110,18 @@ class SocialIntegration(db.Model):
     # Relationships
     user = db.relationship('User', back_populates='social_integrations', lazy=True)
     category = db.relationship('Category', back_populates='social_integrations', lazy=True)
+
+class Application(db.Model):
+    __tablename__ = 'application'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    employment_id = db.Column(db.Integer, db.ForeignKey('employment.id'), nullable=False)
+    status = db.Column(db.String, nullable=False)  
+    resume = db.Column(db.String, nullable=False)  
+    cover_letter = db.Column(db.String, nullable=False)
+    email = db.Column(db.String, nullable=False)  
+
+    # Relationships
+    user = db.relationship('User', back_populates='applications', lazy=True)
+    employment = db.relationship('Employment', back_populates='applications', lazy=True)
