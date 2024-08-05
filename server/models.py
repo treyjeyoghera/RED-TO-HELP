@@ -81,6 +81,7 @@ def update(self, **kwargs):
 def delete(self):
     db.session.delete(self)
     db.session.commit()
+
     
 
 
@@ -96,3 +97,16 @@ class Category(db.Model):
     employments = db.relationship('Employment', back_populates='category', lazy=True)
     social_integrations = db.relationship('SocialIntegration', back_populates='category', lazy=True)
     creator = db.relationship('User', back_populates='categories', lazy=True)
+
+class SocialIntegration(db.Model):
+    __tablename__ = 'socialintegration'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
+    association_name = db.Column(db.String, nullable=False)
+    description = db.Column(db.String, nullable=False)
+
+    # Relationships
+    user = db.relationship('User', back_populates='social_integrations', lazy=True)
+    category = db.relationship('Category', back_populates='social_integrations', lazy=True)
