@@ -1,7 +1,8 @@
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import Column, Integer, String, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from flask_login import UserMixin
+from enum import Enum as PyEnum
 
 db = SQLAlchemy()
 
@@ -21,6 +22,8 @@ class User(db.Model, UserMixin):
     applications = db.relationship('Application', back_populates='user', lazy=True)
     categories = db.relationship('Category', back_populates='creator', lazy=True)
     social_integrations = db.relationship('SocialIntegration', back_populates='user', lazy=True)
+    funding_applications = db.relationship('FundingApplication', backref='applicant', lazy=True) # Changed backref name
+
 
     @property
     def is_active(self):
@@ -94,6 +97,7 @@ class Category(db.Model):
     # Relationships
     employments = db.relationship('Employment', back_populates='category', lazy=True)
     social_integrations = db.relationship('SocialIntegration', back_populates='category', lazy=True)
+    fundings = db.relationship('Funding', backref='source_category', lazy=True) # Changed backref name
     creator = db.relationship('User', back_populates='categories', lazy=True)
 
 class SocialIntegration(db.Model):
@@ -123,3 +127,58 @@ class Application(db.Model):
     # Relationships
     user = db.relationship('User', back_populates='applications', lazy=True)
     employment = db.relationship('Employment', back_populates='applications', lazy=True)
+
+class GrantType(PyEnum):
+    SOCIAL_AID = 'Social Aid'
+    BUSINESS = 'Business'
+
+class Funding(db.Model):
+    __tablename__ = 'funding'
+
+    id = db.Column(db.Integer, primary_key=True)
+    category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
+    grant_name = db.Column(db.String(120), nullable=False)
+    grant_type = db.Column(db.Enum(GrantType), nullable=False)
+    amount = db.Column(db.Integer, nullable=False)
+    description = db.Column(db.Text)
+    eligibility_criteria = Column(Text, nullable=True)
+    
+    # Relationships
+    category = relationship('Category', back_populates='fundings', viewonly=True) # Marked as view-only to resolve relationship conflict //querying for funded projects by a specific category
+    funding_applications = db.relationship('FundingApplication', back_populates='funding', lazy=True)
+
+class ApplicationStatus(PyEnum):
+    #PENDING = 'Pending'
+    #APPROVED = 'Approved'
+    #REJECTED = 'Rejected'
+    APPLIED = "Applied"
+    IN_REVIEW = "In Review"
+    ACCEPTED = "Accepted"
+    REJECTED = "Rejected"
+
+class ApplicationType(PyEnum):
+    SOCIAL_AID = 'SocialAid'
+    BUSINESS = 'Business'
+
+class FundingApplication(db.Model):
+    __tablename__ = 'funding_application'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    funding_id = db.Column(db.Integer, db.ForeignKey('funding.id'), nullable=False)
+    status = db.Column(db.Enum(ApplicationStatus), nullable=False)
+    application_type = db.Column(db.Enum(ApplicationType), nullable=False)
+    supporting_documents = db.Column(db.Text, nullable=True)  # URL or File Path
+
+    # Social Aid Specific Fields
+    household_income = db.Column(db.Integer, nullable=True)
+    number_of_dependents = db.Column(db.Integer, nullable=True)
+    reason_for_aid = db.Column(db.Text, nullable=True)
+
+    # Business Specific Fields
+    concept_note = db.Column(db.Text, nullable=True)
+    business_profile = db.Column(db.Text, nullable=True)
+
+    #Relationships
+    user = db.relationship('User', back_populates='funding_applications', overlaps="applicant")
+    funding = db.relationship('Funding', back_populates='funding_applications', lazy=True)
