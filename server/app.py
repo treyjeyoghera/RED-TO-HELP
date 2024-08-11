@@ -322,5 +322,183 @@ def delete_application(application_id):
         return jsonify({'message': 'Application deleted successfully!'}), 200
     return jsonify({'message': 'Application not found!'}), 404
 
+# Funding routes
+@app.route('/fundings', methods=['POST'])
+def create_funding():
+    data = request.get_json()
+    if not data or not all(key in data for key in ['category_id', 'grant_name', 'grant_type', 'amount']):
+        return jsonify({'message': 'Missing required fields!'}), 400
+
+    new_funding = Funding(
+        category_id=data['category_id'],
+        grant_name=data['grant_name'],
+        grant_type=data['grant_type'],
+        amount=data['amount'],
+        description=data.get('description'),
+        eligibility_criteria=data.get('eligibility_criteria')
+    )
+    db.session.add(new_funding)
+    db.session.commit()
+    return jsonify({'message': 'Funding created successfully!', 'funding_id': new_funding.id}), 201
+
+@app.route('/fundings', methods=['GET'])
+def get_fundings():
+    fundings = Funding.query.all()
+    return jsonify([
+        {
+            'id': funding.id,
+            'category_id': funding.category_id,
+            'grant_name': funding.grant_name,
+            'grant_type': funding.grant_type.value,
+            'amount': funding.amount,
+            'description': funding.description,
+            'eligibility_criteria': funding.eligibility_criteria
+        } for funding in fundings
+    ]), 200
+
+@app.route('/fundings/<int:id>', methods=['GET'])
+def get_funding(id):
+    funding = Funding.query.get(id)
+    if funding:
+        return jsonify({
+            'id': funding.id,
+            'category_id': funding.category_id,
+            'grant_name': funding.grant_name,
+            'grant_type': funding.grant_type.value,
+            'amount': funding.amount,
+            'description': funding.description,
+            'eligibility_criteria': funding.eligibility_criteria
+        }), 200
+    return jsonify({'message': 'Funding not found!'}), 404
+
+@app.route('/fundings/<int:id>', methods=['PUT'])
+def update_funding(id):
+    funding = Funding.query.get(id)
+    if not funding:
+        return jsonify({'message': 'Funding not found!'}), 404
+
+    data = request.get_json()
+    if 'category_id' in data:
+        funding.category_id = data['category_id']
+    if 'grant_name' in data:
+        funding.grant_name = data['grant_name']
+    if 'grant_type' in data:
+        funding.grant_type = data['grant_type']
+    if 'amount' in data:
+        funding.amount = data['amount']
+    if 'description' in data:
+        funding.description = data['description']
+    if 'eligibility_criteria' in data:
+        funding.eligibility_criteria = data['eligibility_criteria']
+
+    db.session.commit()
+    return jsonify({'message': 'Funding updated successfully!'}), 200
+
+@app.route('/fundings/<int:id>', methods=['DELETE'])
+def delete_funding(id):
+    funding = Funding.query.get(id)
+    if funding:
+        db.session.delete(funding)
+        db.session.commit()
+        return jsonify({'message': 'Funding deleted successfully!'}), 200
+    return jsonify({'message': 'Funding not found!'}), 404
+
+# FundingApplication routes
+@app.route('/funding_applications', methods=['POST'])
+def create_funding_application():
+    data = request.get_json()
+    if not data or not all(key in data for key in ['user_id', 'funding_id', 'status', 'application_type']):
+        return jsonify({'message': 'Missing required fields!'}), 400
+
+    new_funding_application = FundingApplication(
+        user_id=data['user_id'],
+        funding_id=data['funding_id'],
+        status=data['status'],
+        application_type=data['application_type'],
+        supporting_documents=data.get('supporting_documents'),
+        household_income=data.get('household_income'),
+        number_of_dependents=data.get('number_of_dependents'),
+        reason_for_aid=data.get('reason_for_aid'),
+        concept_note=data.get('concept_note'),
+        business_profile=data.get('business_profile')
+    )
+    db.session.add(new_funding_application)
+    db.session.commit()
+    return jsonify({'message': 'Funding application created successfully!', 'funding_application_id': new_funding_application.id}), 201
+
+@app.route('/funding_applications', methods=['GET'])
+def get_funding_applications():
+    funding_applications = FundingApplication.query.all()
+    return jsonify([
+        {
+            'id': funding_app.id,
+            'user_id': funding_app.user_id,
+            'funding_id': funding_app.funding_id,
+            'status': funding_app.status.value,
+            'application_type': funding_app.application_type.value,
+            'supporting_documents': funding_app.supporting_documents,
+            'household_income': funding_app.household_income,
+            'number_of_dependents': funding_app.number_of_dependents,
+            'reason_for_aid': funding_app.reason_for_aid,
+            'concept_note': funding_app.concept_note,
+            'business_profile': funding_app.business_profile
+        } for funding_app in funding_applications
+    ]), 200
+
+@app.route('/funding_applications/<int:id>', methods=['GET'])
+def get_funding_application(id):
+    funding_application = FundingApplication.query.get(id)
+    if funding_application:
+        return jsonify({
+            'id': funding_application.id,
+            'user_id': funding_application.user_id,
+            'funding_id': funding_application.funding_id,
+            'status': funding_application.status.value,
+            'application_type': funding_application.application_type.value,
+            'supporting_documents': funding_application.supporting_documents,
+            'household_income': funding_application.household_income,
+            'number_of_dependents': funding_application.number_of_dependents,
+            'reason_for_aid': funding_application.reason_for_aid,
+            'concept_note': funding_application.concept_note,
+            'business_profile': funding_application.business_profile
+        }), 200
+    return jsonify({'message': 'Funding application not found!'}), 404
+
+@app.route('/funding_applications/<int:id>', methods=['PUT'])
+def update_funding_application(id):
+    funding_application = FundingApplication.query.get(id)
+    if not funding_application:
+        return jsonify({'message': 'Funding application not found!'}), 404
+
+    data = request.get_json()
+    if 'status' in data:
+        funding_application.status = data['status']
+    if 'application_type' in data:
+        funding_application.application_type = data['application_type']
+    if 'supporting_documents' in data:
+        funding_application.supporting_documents = data['supporting_documents']
+    if 'household_income' in data:
+        funding_application.household_income = data['household_income']
+    if 'number_of_dependents' in data:
+        funding_application.number_of_dependents = data['number_of_dependents']
+    if 'reason_for_aid' in data:
+        funding_application.reason_for_aid = data['reason_for_aid']
+    if 'concept_note' in data:
+        funding_application.concept_note = data['concept_note']
+    if 'business_profile' in data:
+        funding_application.business_profile = data['business_profile']
+
+    db.session.commit()
+    return jsonify({'message': 'Funding application updated successfully!'}), 200
+
+@app.route('/funding_applications/<int:id>', methods=['DELETE'])
+def delete_funding_application(id):
+    funding_application = FundingApplication.query.get(id)
+    if funding_application:
+        db.session.delete(funding_application)
+        db.session.commit()
+        return jsonify({'message': 'Funding application deleted successfully!'}), 200
+    return jsonify({'message': 'Funding application not found!'}), 404
+
 if __name__ == '__main__':
     app.run(debug=True)
