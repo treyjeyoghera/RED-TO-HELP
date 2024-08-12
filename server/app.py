@@ -4,7 +4,7 @@ from flask_migrate import Migrate
 from flask_restful import Api
 from flask_login import LoginManager
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, User, Employment, Category, Application, SocialIntegration
+from models import db, User, Employment, Category, Application, SocialIntegration, Funding, FundingApplication
 from auth import initialize_auth_routes
 
 def create_app():
@@ -255,6 +255,84 @@ def delete_employment(id):
         db.session.commit()
         return jsonify({'message': 'Employment deleted successfully!'}), 200
     return jsonify({'message': 'Employment not found!'}), 404
+
+from flask import Flask, request, jsonify
+from models import db, SocialIntegration, User, Category  # Assuming these models are in a 'models' module
+
+# Create a Social Integration
+@app.route('/social_integrations', methods=['POST'])
+def create_social_integration():
+    data = request.get_json()
+    if not data or not all(key in data for key in ['user_id', 'category_id', 'association_name', 'description']):
+        return jsonify({'message': 'Missing required fields!'}), 400
+
+    new_social_integration = SocialIntegration(
+        user_id=data['user_id'],
+        category_id=data['category_id'],
+        association_name=data['association_name'],
+        description=data['description']
+    )
+    db.session.add(new_social_integration)
+    db.session.commit()
+    return jsonify({'message': 'Social Integration created successfully!', 'id': new_social_integration.id}), 201
+
+# Get All Social Integrations
+@app.route('/social_integrations', methods=['GET'])
+def get_social_integrations():
+    social_integrations = SocialIntegration.query.all()
+    return jsonify([
+        {
+            'id': social_integration.id,
+            'user_id': social_integration.user_id,
+            'category_id': social_integration.category_id,
+            'association_name': social_integration.association_name,
+            'description': social_integration.description
+        } for social_integration in social_integrations
+    ]), 200
+
+# Get a Single Social Integration by ID
+@app.route('/social_integrations/<int:id>', methods=['GET'])
+def get_social_integration(id):
+    social_integration = SocialIntegration.query.get(id)
+    if social_integration:
+        return jsonify({
+            'id': social_integration.id,
+            'user_id': social_integration.user_id,
+            'category_id': social_integration.category_id,
+            'association_name': social_integration.association_name,
+            'description': social_integration.description
+        }), 200
+    return jsonify({'message': 'Social Integration not found!'}), 404
+
+# Update a Social Integration
+@app.route('/social_integrations/<int:id>', methods=['PUT'])
+def update_social_integration(id):
+    social_integration = SocialIntegration.query.get(id)
+    if not social_integration:
+        return jsonify({'message': 'Social Integration not found!'}), 404
+
+    data = request.get_json()
+    if 'user_id' in data:
+        social_integration.user_id = data['user_id']
+    if 'category_id' in data:
+        social_integration.category_id = data['category_id']
+    if 'association_name' in data:
+        social_integration.association_name = data['association_name']
+    if 'description' in data:
+        social_integration.description = data['description']
+
+    db.session.commit()
+    return jsonify({'message': 'Social Integration updated successfully!'}), 200
+
+# Delete a Social Integration
+@app.route('/social_integrations/<int:id>', methods=['DELETE'])
+def delete_social_integration(id):
+    social_integration = SocialIntegration.query.get(id)
+    if social_integration:
+        db.session.delete(social_integration)
+        db.session.commit()
+        return jsonify({'message': 'Social Integration deleted successfully!'}), 200
+    return jsonify({'message': 'Social Integration not found!'}), 404
 
 # Application routes
 @app.route('/applications', methods=['POST'])
