@@ -1,8 +1,9 @@
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Enum, Float, DateTime
 from sqlalchemy.orm import relationship
 from flask_login import UserMixin
 from enum import Enum as PyEnum
+from datetime import datetime
 
 db = SQLAlchemy()
 
@@ -23,6 +24,7 @@ class User(db.Model, UserMixin):
     categories = db.relationship('Category', back_populates='creator', lazy=True)
     social_integrations = db.relationship('SocialIntegration', back_populates='user', lazy=True)
     funding_applications = db.relationship('FundingApplication', backref='applicant', lazy=True) # Changed backref name
+    donations = db.relationship('Donation', back_populates='user', overlaps='donor', lazy=True)
 
 
     @property
@@ -113,17 +115,27 @@ class SocialIntegration(db.Model):
     user = db.relationship('User', back_populates='social_integrations', lazy=True)
     category = db.relationship('Category', back_populates='social_integrations', lazy=True)
 
+class AppStatus(PyEnum):
+    PENDING = "Pending"
+    IN_REVIEW = "In Review"
+    ACCEPTED = "Accepted"
+    REJECTED = "Rejected"
+
 class Application(db.Model):
     __tablename__ = 'application'  # Corrected from 'tablename' to '__tablename__'
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     employment_id = db.Column(db.Integer, db.ForeignKey('employment.id'), nullable=False)
-    status = db.Column(db.String, nullable=False)  
-    resume = db.Column(db.String, nullable=False)  
+    status = db.Column(Enum(AppStatus), nullable=False)    
+    name = db.Column(db.String, nullable=False)
+    phone_number = db.Column(db.String, nullable=False)
+    email = db.Column(db.String, nullable=False)
     cover_letter = db.Column(db.String, nullable=False)
-    email = db.Column(db.String, nullable=False)  
-
+    resume = db.Column(db.String, nullable=False)
+    linkedin = db.Column(db.String, nullable=True) # URL or File Path
+    portfolio = db.Column(db.String, nullable=True) # URL or File Path
+  
     # Relationships
     user = db.relationship('User', back_populates='applications', lazy=True)
     employment = db.relationship('Employment', back_populates='applications', lazy=True)
@@ -148,13 +160,10 @@ class Funding(db.Model):
     funding_applications = db.relationship('FundingApplication', back_populates='funding', lazy=True)
 
 class ApplicationStatus(PyEnum):
-    #PENDING = 'Pending'
-    #APPROVED = 'Approved'
-    #REJECTED = 'Rejected'
     APPLIED = "Applied"
     IN_REVIEW = "In Review"
-    ACCEPTED = "Accepted"
-    REJECTED = "Rejected"
+    APPROVED = "Approved"
+    DENIED = "Denied"
 
 class ApplicationType(PyEnum):
     SOCIAL_AID = 'SocialAid'
@@ -182,3 +191,27 @@ class FundingApplication(db.Model):
     #Relationships
     user = db.relationship('User', back_populates='funding_applications', overlaps="applicant")
     funding = db.relationship('Funding', back_populates='funding_applications', lazy=True)
+
+class DonationType(PyEnum):
+    INDIVIDUAL = 'Individual'
+    ORGANISATION = 'Organisation'
+
+class PaymentMethod(PyEnum):
+    CREDIT_CARD = 'Credit Card'
+    PAYPAL = 'PayPal'
+    MPESA = 'MPESA'
+
+class Donation(db.Model):
+    __tablename__ = 'donation'
+
+    donation_id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    donation_type = db.Column(db.Enum(DonationType), nullable=False)
+    name = db.Column(db.String, nullable=True) #individual specific field
+    organisation_name = db.Column(db.String, nullable=True) #organisation specific field
+    amount = db.Column(db.Float, nullable=False)
+    payment_method = db.Column(db.Enum(PaymentMethod), nullable=False)
+    donation_date = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    user = db.relationship('User', back_populates='donations', lazy=True)

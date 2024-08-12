@@ -4,11 +4,12 @@ from flask_migrate import Migrate
 from flask_restful import Api
 from flask_login import LoginManager
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, User, Employment, Category, Application, SocialIntegration, Funding, FundingApplication
+from models import db, User, Employment, Category, Application, SocialIntegration, Funding, FundingApplication, Donation, DonationType, PaymentMethod, datetime
 from auth import initialize_auth_routes
-
+from flask_cors import CORS
 def create_app():
     app = Flask(__name__)
+    CORS(app)
 
     # Configure your database URI here
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///poverty.db'
@@ -577,6 +578,81 @@ def delete_funding_application(id):
         db.session.commit()
         return jsonify({'message': 'Funding application deleted successfully!'}), 200
     return jsonify({'message': 'Funding application not found!'}), 404
+
+#Donations routes
+@app.route('/donations', methods=['POST'])
+def create_donation():
+    data = request.json
+
+    donation = Donation(
+        user_id=data.get('user_id'),
+        donation_type=DonationType(data['donation_type']),
+        name=data.get('name'),
+        organisation_name=data.get('organisation_name'),
+        amount=data['amount'],
+        payment_method=PaymentMethod(data['payment_method']),
+        donation_date=datetime.utcnow()
+    )
+
+    db.session.add(donation)
+    db.session.commit()
+
+    return jsonify({"message": "Donation added successfully!", "donation_id": donation.donation_id}), 201
+
+@app.route('/donations', methods=['GET'])
+def get_donations():
+    donations = Donation.query.all()
+    return jsonify([
+        {
+            'donation_id': donation.donation_id,
+            'user_id': donation.user_id,
+            'donation_type': donation.donation_type.value,
+            'name': donation.name,
+            'organisation_name': donation.organisation_name,
+            'amount': donation.amount,
+            'payment_method': donation.payment_method.value,
+            'donation_date': donation.donation_date
+        } for donation in donations
+    ]), 200
+
+@app.route('/donations/<int:donation_id>', methods=['GET'])
+def get_donation(donation_id):
+    donation = Donation.query.get_or_404(donation_id)
+    return jsonify(
+        {
+            'donation_id': donation.donation_id,
+            'user_id': donation.user_id,
+            'donation_type': donation.donation_type.value,
+            'name': donation.name,
+            'organisation_name': donation.organisation_name,
+            'amount': donation.amount,
+            'payment_method': donation.payment_method.value,
+            'donation_date': donation.donation_date
+        }
+    ), 200
+
+@app.route('/donations/<int:donation_id>', methods=['PUT'])
+def update_donation(donation_id):
+    donation = Donation.query.get_or_404(donation_id)
+    data = request.json
+
+    donation.donation_type = DonationType(data['donation_type'])
+    donation.name = data.get('name', donation.name)
+    donation.organisation_name = data.get('organisation_name', donation.organisation_name)
+    donation.amount = data['amount']
+    donation.payment_method = PaymentMethod(data['payment_method'])
+    donation.donation_date = datetime.utcnow()
+
+    db.session.commit()
+
+    return jsonify({"message": "Donation updated successfully!"}), 200
+
+@app.route('/donations/<int:donation_id>', methods=['DELETE'])
+def delete_donation(donation_id):
+    donation = Donation.query.get_or_404(donation_id)
+    db.session.delete(donation)
+    db.session.commit()
+    return jsonify({"message": "Donation deleted successfully!"}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

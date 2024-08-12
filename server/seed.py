@@ -1,5 +1,5 @@
 from faker import Faker
-from models import db, User, Employment, Category, Application, SocialIntegration, Funding, FundingApplication, ApplicationStatus, ApplicationType, GrantType
+from models import db, User, Employment, Category, Application, SocialIntegration, Funding, FundingApplication,AppStatus, ApplicationStatus, ApplicationType, GrantType, Donation, DonationType, PaymentMethod
 from app import create_app
 import random
 import requests
@@ -133,10 +133,15 @@ def seed_applications(users, employments, n=100):
         application = Application(
             user_id=random.choice(users).id,
             employment_id=random.choice(employments).id,
-            status=random.randint(0, 3),  # Assuming you have 4 statuses
-            resume=fake.file_name(extension='pdf'),  # Generate a fake resume filename
+            status=random.choice(list(AppStatus)),  # Use enum for status
+            name=fake.name(),  # Generate a fake name
+            phone_number=fake.phone_number(),  # Generate a fake phone number
+            email=fake.email(),  # Generate a fake email
             cover_letter=fake.text(max_nb_chars=200),  # Generate a fake cover letter
-            email=fake.email()  # Generate a fake email
+            resume=fake.file_name(extension='pdf'),  # Generate a fake resume filename
+            linkedin=fake.url(),  # Generate a fake LinkedIn URL
+            portfolio=fake.url()  # Generate a fake portfolio URL
+
         )
         applications.append(application)
     db.session.add_all(applications)
@@ -216,7 +221,9 @@ def seed_fundings(categories):
         eligibility_criteria=eligibility_criteria[i],
         grant_type=random.choice([GrantType.SOCIAL_AID, GrantType.BUSINESS])  # Randomly assign a grant type
         )
-    fundings.append(funding)
+        fundings.append(funding)
+        # print(f"Seeding: {grant_names} - {descriptions} - {eligibility_criteria}")
+
     db.session.add_all(fundings)
     db.session.commit()
     return fundings
@@ -248,6 +255,24 @@ def seed_funding_applications(users, fundings, n=100):
     db.session.commit()
     return funding_applications
 
+# Seed Donations
+def seed_donations(users, n=100):
+    donations = []
+    for _ in range(n):
+        donation = Donation(
+            user_id=random.choice(users).id,
+            donation_type=random.choice(list(DonationType)),
+            name=fake.name(),
+            organisation_name=fake.company(),
+            amount=random.randint(10, 5000),
+            payment_method=random.choice(list(PaymentMethod)),
+            donation_date=fake.date_this_year()
+        )
+        donations.append(donation)
+    db.session.add_all(donations)
+    db.session.commit()
+    return donations
+
 # Seed all data
 def seed_all():
     users = seed_users()
@@ -257,6 +282,8 @@ def seed_all():
     social_integrations = seed_social_integrations(users, categories)
     fundings = seed_fundings(categories)
     seed_funding_applications(users, fundings)
+    seed_donations(users)
+
 
 if __name__ == '__main__':
     seed_all()

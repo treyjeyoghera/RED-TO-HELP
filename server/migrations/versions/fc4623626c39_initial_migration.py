@@ -1,8 +1,8 @@
 """initial migration
 
-Revision ID: e94cbf2ed3cc
+Revision ID: fc4623626c39
 Revises: 
-Create Date: 2024-08-11 21:16:17.538060
+Create Date: 2024-08-12 20:00:11.874680
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'e94cbf2ed3cc'
+revision = 'fc4623626c39'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -36,6 +36,18 @@ def upgrade():
     sa.Column('user_id', sa.Integer(), nullable=True),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('donation',
+    sa.Column('donation_id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.Column('donation_type', sa.Enum('INDIVIDUAL', 'ORGANISATION', name='donationtype'), nullable=False),
+    sa.Column('name', sa.String(), nullable=True),
+    sa.Column('organisation_name', sa.String(), nullable=True),
+    sa.Column('amount', sa.Float(), nullable=False),
+    sa.Column('payment_method', sa.Enum('CREDIT_CARD', 'PAYPAL', 'MPESA', name='paymentmethod'), nullable=False),
+    sa.Column('donation_date', sa.DateTime(), nullable=True),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
+    sa.PrimaryKeyConstraint('donation_id')
     )
     op.create_table('employment',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -75,10 +87,14 @@ def upgrade():
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('employment_id', sa.Integer(), nullable=False),
-    sa.Column('status', sa.String(), nullable=False),
-    sa.Column('resume', sa.String(), nullable=False),
-    sa.Column('cover_letter', sa.String(), nullable=False),
+    sa.Column('status', sa.Enum('PENDING', 'IN_REVIEW', 'ACCEPTED', 'REJECTED', name='appstatus'), nullable=False),
+    sa.Column('name', sa.String(), nullable=False),
+    sa.Column('phone_number', sa.String(), nullable=False),
     sa.Column('email', sa.String(), nullable=False),
+    sa.Column('cover_letter', sa.String(), nullable=False),
+    sa.Column('resume', sa.String(), nullable=False),
+    sa.Column('linkedin', sa.String(), nullable=True),
+    sa.Column('portfolio', sa.String(), nullable=True),
     sa.ForeignKeyConstraint(['employment_id'], ['employment.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -87,7 +103,7 @@ def upgrade():
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('funding_id', sa.Integer(), nullable=False),
-    sa.Column('status', sa.Enum('APPLIED', 'IN_REVIEW', 'ACCEPTED', 'REJECTED', name='applicationstatus'), nullable=False),
+    sa.Column('status', sa.Enum('APPLIED', 'IN_REVIEW', 'APPROVED', 'DENIED', name='applicationstatus'), nullable=False),
     sa.Column('application_type', sa.Enum('SOCIAL_AID', 'BUSINESS', name='applicationtype'), nullable=False),
     sa.Column('supporting_documents', sa.Text(), nullable=True),
     sa.Column('household_income', sa.Integer(), nullable=True),
@@ -109,6 +125,7 @@ def downgrade():
     op.drop_table('socialintegration')
     op.drop_table('funding')
     op.drop_table('employment')
+    op.drop_table('donation')
     op.drop_table('category')
     op.drop_table('user')
     # ### end Alembic commands ###
