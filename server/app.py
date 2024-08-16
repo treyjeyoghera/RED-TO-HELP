@@ -4,7 +4,7 @@ from flask_migrate import Migrate
 from flask_restful import Api
 from flask_login import LoginManager
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, User, Employment, Category, Application, SocialIntegration, Funding, FundingApplication, Donation, DonationType, PaymentMethod, datetime
+from models import db, User, Employment, Category, Application, SocialIntegration, Funding, FundingApplication, Donation, DonationType, PaymentMethod, datetime, AppStatus
 from auth import initialize_auth_routes
 from flask_cors import CORS
 def create_app():
@@ -321,9 +321,14 @@ def update_social_integration(id):
         social_integration.association_name = data['association_name']
     if 'description' in data:
         social_integration.description = data['description']
+    if 'interested' in data:
+        social_integration.interested = data['interested']
+    if 'saved' in data:
+        social_integration.saved = data['saved']
 
     db.session.commit()
     return jsonify({'message': 'Social Integration updated successfully!'}), 200
+
 
 # Delete a Social Integration
 @app.route('/social_integrations/<int:id>', methods=['DELETE'])
@@ -339,13 +344,27 @@ def delete_social_integration(id):
 @app.route('/applications', methods=['POST'])
 def create_application():
     data = request.get_json()
-    if not data or not all(key in data for key in ['user_id', 'employment_id', 'status']):
+    required_fields = ['user_id', 'employment_id', 'status', 'name', 'phone_number', 'email', 'cover_letter', 'resume', 'linkedin', 'portfolio']
+    
+    if not data or not all(key in data for key in required_fields):
         return jsonify({'message': 'Missing required fields!'}), 400
     
+    try:
+        status = AppStatus(data['status'])
+    except ValueError:
+        return jsonify({'message': 'Invalid status value!'}), 400
+
     new_application = Application(
         user_id=data['user_id'],
         employment_id=data['employment_id'],
-        status=data['status']
+        status=status,
+        name=data['name'],
+        phone_number=data['phone_number'],
+        email=data['email'],
+        cover_letter=data['cover_letter'],
+        resume=data['resume'],
+        linkedin=data.get('linkedin'),
+        portfolio=data.get('portfolio')
     )
     db.session.add(new_application)
     db.session.commit()
@@ -359,7 +378,14 @@ def get_application(application_id):
             'id': application.id,
             'user_id': application.user_id,
             'employment_id': application.employment_id,
-            'status': application.status
+            'status': application.status.value,  # Convert Enum to string
+            'name': application.name,
+            'phone_number': application.phone_number,
+            'email': application.email,
+            'cover_letter': application.cover_letter,
+            'resume': application.resume,
+            'linkedin': application.linkedin,
+            'portfolio': application.portfolio
         }), 200
     return jsonify({'message': 'Application not found!'}), 404
 
@@ -371,7 +397,14 @@ def get_all_applications():
             'id': app.id,
             'user_id': app.user_id,
             'employment_id': app.employment_id,
-            'status': app.status
+            'status': app.status.value,  # Convert Enum to string
+            'name': app.name,
+            'phone_number': app.phone_number,
+            'email': app.email,
+            'cover_letter': app.cover_letter,
+            'resume': app.resume,
+            'linkedin': app.linkedin,
+            'portfolio': app.portfolio
         } for app in applications
     ]), 200
 
@@ -382,12 +415,30 @@ def update_application(application_id):
         return jsonify({'message': 'Application not found!'}), 404
     
     data = request.get_json()
+    
+    if 'status' in data:
+        try:
+            application.status = AppStatus(data['status'])
+        except ValueError:
+            return jsonify({'message': 'Invalid status value!'}), 400
     if 'user_id' in data:
         application.user_id = data['user_id']
     if 'employment_id' in data:
         application.employment_id = data['employment_id']
-    if 'status' in data:
-        application.status = data['status']
+    if 'name' in data:
+        application.name = data['name']
+    if 'phone_number' in data:
+        application.phone_number = data['phone_number']
+    if 'email' in data:
+        application.email = data['email']
+    if 'cover_letter' in data:
+        application.cover_letter = data['cover_letter']
+    if 'resume' in data:
+        application.resume = data['resume']
+    if 'linkedin' in data:
+        application.linkedin = data['linkedin']
+    if 'portfolio' in data:
+        application.portfolio = data['portfolio']
 
     db.session.commit()
     return jsonify({'message': 'Application updated successfully!'}), 200
