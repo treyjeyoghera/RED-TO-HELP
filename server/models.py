@@ -117,9 +117,10 @@ class SocialIntegration(db.Model):
 
 class AppStatus(PyEnum):
     PENDING = "Pending"
-    IN_REVIEW = "In Review"
-    ACCEPTED = "Accepted"
-    REJECTED = "Rejected"
+    IN_REVIEW = "IN_REVIEW"
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
+
 
 class Application(db.Model):
     __tablename__ = 'application'  # Corrected from 'tablename' to '__tablename__'

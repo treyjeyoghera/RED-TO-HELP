@@ -1,15 +1,19 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, session, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_restful import Api
-from flask_login import LoginManager
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, User, Employment, Category, Application, SocialIntegration, Funding, FundingApplication, Donation, DonationType, PaymentMethod, datetime
-from auth import initialize_auth_routes
+from models import db, User, Employment, Category, Application, SocialIntegration, Funding, FundingApplication, Donation, DonationType, PaymentMethod, datetime, AppStatus
+from auth import initialize_auth_routes, auth
 from flask_cors import CORS
+
+
+
+
 def create_app():
     app = Flask(__name__)
-    CORS(app)
+    CORS(app, supports_credentials=True)  
 
     # Configure your database URI here
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///poverty.db'
@@ -22,6 +26,7 @@ def create_app():
     
     login_manager = LoginManager()
     login_manager.init_app(app)
+    login_manager.login_view = 'login'
 
     @login_manager.user_loader
     def load_user(user_id):
@@ -29,10 +34,62 @@ def create_app():
 
     api = Api(app)
     initialize_auth_routes(api)  # Initialize authentication routes
+    app.register_blueprint(auth)
+
 
     return app
 
 app = create_app()
+
+""" @app.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    if not data or not all(key in data for key in ['email', 'password']):
+        return jsonify({'message': 'Missing required fields!'}), 400
+
+    user = User.query.filter_by(email=data['email']).first()
+    if user and check_password_hash(user.password, data['password']):
+        login_user(user)  # Log the user in and create a session
+        session['user_id'] = user.id
+        print(session)  # Debugging line to see session data in the console
+        return jsonify({'message': 'Login successful!', 'user_id': user.id}), 200
+    
+    return jsonify({'message': 'Invalid credentials!'}), 401
+
+@app.route('/check-session')
+
+def check_session():
+    return jsonify({
+        'session_user_id': session.get('user_id')
+    })
+
+@app.route('/is_logged_in', methods=['GET'])
+def is_logged_in():
+    user_id = session.get('user_id')
+    if user_id:
+        print(f"User ID in session: {user_id}")
+        return jsonify(is_logged_in=True)
+    else:
+        print("No user ID found in session.")
+        return jsonify(is_logged_in=False)
+
+
+# User Logout
+@app.route('/logout', methods=['POST'])
+@login_required
+def logout():
+    logout_user()
+    session.pop("user_id", None)
+    return jsonify({'message': 'Logout successful!'}), 200
+ """
+
+@app.route('/get_user_id', methods=['GET'])
+def get_user_id():
+    if 'user_id' in session:
+        return jsonify({'user_id': session['user_id']})
+    else:
+        return jsonify({'error': 'No user ID found'}), 404
+
 
 # User routes
 @app.route('/users', methods=['POST'])
@@ -54,6 +111,7 @@ def create_user():
     return jsonify({'message': 'User created successfully!', 'user_id': new_user.id}), 201
 
 @app.route('/users', methods=['GET'])
+@login_required
 def get_users():
     users = User.query.all()
     return jsonify([
@@ -68,6 +126,8 @@ def get_users():
     ]), 200
 
 @app.route('/users/<int:user_id>', methods=['GET'])
+@login_required
+
 def get_user(user_id):
     user = User.query.get(user_id)
     if user:
@@ -339,17 +399,28 @@ def delete_social_integration(id):
 @app.route('/applications', methods=['POST'])
 def create_application():
     data = request.get_json()
-    if not data or not all(key in data for key in ['user_id', 'employment_id', 'status']):
-        return jsonify({'message': 'Missing required fields!'}), 400
+    required_fields = ['user_id', 'employment_id', 'status', 'name', 'phone_number', 'email', 'cover_letter', 'resume']
     
+    if not data or not all(field in data for field in required_fields):
+        return jsonify({'message': 'Missing required fields!'}), 400
+
     new_application = Application(
         user_id=data['user_id'],
         employment_id=data['employment_id'],
-        status=data['status']
+        name=data['name'],
+        phone_number=data['phone_number'],
+        email=data['email'],
+        cover_letter=data['cover_letter'],
+        resume=data['resume'],
+        status=AppStatus[data['status']],
+        linkedin=data.get('linkedin'),  # Optional field
+        portfolio=data.get('portfolio')  # Optional field
     )
+    
     db.session.add(new_application)
     db.session.commit()
     return jsonify({'message': 'Application created successfully!', 'application_id': new_application.id}), 201
+
 
 @app.route('/applications/<int:application_id>', methods=['GET'])
 def get_application(application_id):
@@ -359,9 +430,10 @@ def get_application(application_id):
             'id': application.id,
             'user_id': application.user_id,
             'employment_id': application.employment_id,
-            'status': application.status
+            'status': application.status.value  # Convert enum to string
         }), 200
     return jsonify({'message': 'Application not found!'}), 404
+
 
 @app.route('/applications', methods=['GET'])
 def get_all_applications():
@@ -371,9 +443,17 @@ def get_all_applications():
             'id': app.id,
             'user_id': app.user_id,
             'employment_id': app.employment_id,
-            'status': app.status
+            'status': app.status.value,  # Convert enum to string for JSON response
+            'name': app.name,
+            'phone_number': app.phone_number,
+            'email': app.email,
+            'cover_letter': app.cover_letter,
+            'resume': app.resume,
+            'linkedin': app.linkedin,
+            'portfolio': app.portfolio
         } for app in applications
     ]), 200
+
 
 @app.route('/applications/<int:application_id>', methods=['PUT'])
 def update_application(application_id):
@@ -387,7 +467,7 @@ def update_application(application_id):
     if 'employment_id' in data:
         application.employment_id = data['employment_id']
     if 'status' in data:
-        application.status = data['status']
+        application.status = AppStatus[data['status']]
 
     db.session.commit()
     return jsonify({'message': 'Application updated successfully!'}), 200
@@ -654,5 +734,80 @@ def delete_donation(donation_id):
     db.session.commit()
     return jsonify({"message": "Donation deleted successfully!"}), 200
 
+
+@app.route('/profile/<int:user_id>', methods=['GET'])
+def get_user_profile(user_id):
+    user = User.query.get(user_id)
+    
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+
+    user_profile = {
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'profile_picture': user.profile_picture,
+        'employments': [
+            {
+                'id': emp.id,
+                'title': emp.title,
+                'description': emp.description,
+                'location': emp.location,
+                'salary_range': emp.salary_range,
+            } for emp in user.employments
+        ] or "N/A",
+        'applications': [
+            {
+                'id': app.id,
+                'employment_id': app.employment_id,
+                'status': app.status.value,
+                'name': app.name,
+                'phone_number': app.phone_number,
+                'email': app.email,
+                'cover_letter': app.cover_letter,
+                'resume': app.resume,
+                'linkedin': app.linkedin,
+                'portfolio': app.portfolio,
+            } for app in user.applications
+        ] or "N/A",
+        'social_integrations': [
+            {
+                'id': si.id,
+                'association_name': si.association_name,
+                'description': si.description,
+            } for si in user.social_integrations
+        ] or "N/A",
+        'funding_applications': [
+            {
+                'id': fa.id,
+                'funding_id': fa.funding_id,
+                'status': fa.status.value,
+                'application_type': fa.application_type.value,
+                'supporting_documents': fa.supporting_documents,
+                'household_income': fa.household_income,
+                'number_of_dependents': fa.number_of_dependents,
+                'reason_for_aid': fa.reason_for_aid,
+                'concept_note': fa.concept_note,
+                'business_profile': fa.business_profile,
+            } for fa in user.funding_applications
+        ] or "N/A",
+        'donations': [
+            {
+                'donation_id': don.donation_id,
+                'donation_type': don.donation_type.value,
+                'name': don.name,
+                'organisation_name': don.organisation_name,
+                'amount': don.amount,
+                'payment_method': don.payment_method.value,
+                'donation_date': don.donation_date.strftime('%Y-%m-%d %H:%M:%S'),
+            } for don in user.donations
+        ] or "N/A"
+    }
+
+    return jsonify(user_profile)
+
 if __name__ == '__main__':
     app.run(debug=True)
+

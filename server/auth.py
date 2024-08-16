@@ -1,9 +1,11 @@
-from flask import request, jsonify
+from flask import request, jsonify, Blueprint, session
 from flask_restful import Resource
-from flask_login import login_user, logout_user, login_required
+from flask_login import login_user, logout_user, current_user, login_required
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import db
 from models import User
+
+auth = Blueprint('auth', __name__)
 
 class LoginResource(Resource):
     def post(self):
@@ -11,20 +13,20 @@ class LoginResource(Resource):
             data = request.get_json()
             email = data.get('email')
             password = data.get('password')
-            
+           
             user = User.query.filter_by(email=email).first()
             print(f"Attempting to log in user: {email}")
-
             if not user:
                 print("User not found")
                 return {'message': 'Invalid email or password'}, 401
-            
+           
             if not check_password_hash(user.password, password):
                 print("Password does not match")
                 return {'message': 'Invalid email or password'}, 401
-            
+           
             login_user(user)
             print("User logged in successfully")
+            user_id = session.get('user_id')
             return {
                 'message': 'Logged in successfully',
                 'profile_picture': user.profile_picture  # Include profile picture if exists
@@ -32,7 +34,28 @@ class LoginResource(Resource):
         except Exception as e:
             print(f"Exception occurred: {str(e)}")
             return {'message': str(e)}, 500
+        
 
+class SessionCheckResource(Resource):
+    def get(self):
+        if current_user.is_authenticated:
+            print(f"User is authenticated: {current_user.id}")
+            return jsonify(is_logged_in=True)
+        else:
+            print("No authenticated user.")
+            return jsonify(is_logged_in=False)
+
+class SessionUserResource(Resource):
+    def get(self):
+        if current_user.is_authenticated:
+            return jsonify({
+                'session_user_id': current_user.id
+            })
+        else:
+            return jsonify({
+                'session_user_id': None
+            })
+   
 class SignupResource(Resource):
     def post(self):
         try:
@@ -75,8 +98,11 @@ class LogoutResource(Resource):
             return {'message': 'Logged out successfully'}, 200
         except Exception as e:
             return {'message': str(e)}, 500
+        
 
 def initialize_auth_routes(api):
     api.add_resource(LoginResource, '/login')
     api.add_resource(SignupResource, '/signup')
     api.add_resource(LogoutResource, '/logout')
+    api.add_resource(SessionCheckResource, '/is_logged_in')
+    api.add_resource(SessionUserResource, '/check-session')
