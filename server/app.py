@@ -381,9 +381,14 @@ def update_social_integration(id):
         social_integration.association_name = data['association_name']
     if 'description' in data:
         social_integration.description = data['description']
+    if 'interested' in data:
+        social_integration.interested = data['interested']
+    if 'saved' in data:
+        social_integration.saved = data['saved']
 
     db.session.commit()
     return jsonify({'message': 'Social Integration updated successfully!'}), 200
+
 
 # Delete a Social Integration
 @app.route('/social_integrations/<int:id>', methods=['DELETE'])
@@ -399,22 +404,13 @@ def delete_social_integration(id):
 @app.route('/applications', methods=['POST'])
 def create_application():
     data = request.get_json()
-    required_fields = ['user_id', 'employment_id', 'status', 'name', 'phone_number', 'email', 'cover_letter', 'resume']
-    
-    if not data or not all(field in data for field in required_fields):
+    if not data or not all(key in data for key in ['user_id', 'employment_id', 'status']):
         return jsonify({'message': 'Missing required fields!'}), 400
-
+    
     new_application = Application(
         user_id=data['user_id'],
         employment_id=data['employment_id'],
-        name=data['name'],
-        phone_number=data['phone_number'],
-        email=data['email'],
-        cover_letter=data['cover_letter'],
-        resume=data['resume'],
-        status=AppStatus[data['status']],
-        linkedin=data.get('linkedin'),  # Optional field
-        portfolio=data.get('portfolio')  # Optional field
+        status=data['status']
     )
     
     db.session.add(new_application)
@@ -430,7 +426,7 @@ def get_application(application_id):
             'id': application.id,
             'user_id': application.user_id,
             'employment_id': application.employment_id,
-            'status': application.status.value  # Convert enum to string
+            'status': application.status
         }), 200
     return jsonify({'message': 'Application not found!'}), 404
 
@@ -443,14 +439,7 @@ def get_all_applications():
             'id': app.id,
             'user_id': app.user_id,
             'employment_id': app.employment_id,
-            'status': app.status.value,  # Convert enum to string for JSON response
-            'name': app.name,
-            'phone_number': app.phone_number,
-            'email': app.email,
-            'cover_letter': app.cover_letter,
-            'resume': app.resume,
-            'linkedin': app.linkedin,
-            'portfolio': app.portfolio
+            'status': app.status
         } for app in applications
     ]), 200
 
@@ -462,12 +451,18 @@ def update_application(application_id):
         return jsonify({'message': 'Application not found!'}), 404
     
     data = request.get_json()
+    
+    if 'status' in data:
+        try:
+            application.status = AppStatus(data['status'])
+        except ValueError:
+            return jsonify({'message': 'Invalid status value!'}), 400
     if 'user_id' in data:
         application.user_id = data['user_id']
     if 'employment_id' in data:
         application.employment_id = data['employment_id']
     if 'status' in data:
-        application.status = AppStatus[data['status']]
+        application.status = data['status']
 
     db.session.commit()
     return jsonify({'message': 'Application updated successfully!'}), 200
