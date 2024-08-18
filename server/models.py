@@ -26,7 +26,6 @@ class User(db.Model, UserMixin):
     funding_applications = db.relationship('FundingApplication', backref='applicant', lazy=True) # Changed backref name
     donations = db.relationship('Donation', back_populates='user', overlaps='donor', lazy=True)
 
-
     @property
     def is_active(self):
         return True  
@@ -115,24 +114,17 @@ class SocialIntegration(db.Model):
     user = db.relationship('User', back_populates='social_integrations', lazy=True)
     category = db.relationship('Category', back_populates='social_integrations', lazy=True)
 
-class AppStatus(PyEnum):
-    PENDING = "Pending"
-    IN_REVIEW = "In Review"
-    ACCEPTED = "Accepted"
-    REJECTED = "Rejected"
-
 class Application(db.Model):
     __tablename__ = 'application'  # Corrected from 'tablename' to '__tablename__'
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     employment_id = db.Column(db.Integer, db.ForeignKey('employment.id'), nullable=False)
-    status = db.Column(Enum(AppStatus), nullable=False)    
     name = db.Column(db.String, nullable=False)
     phone_number = db.Column(db.String, nullable=False)
     email = db.Column(db.String, nullable=False)
-    cover_letter = db.Column(db.String, nullable=False)
-    resume = db.Column(db.String, nullable=False)
+    cover_letter = db.Column(db.Text, nullable=False)
+    resume = db.Column(db.String, nullable=True) # URL or File path
     linkedin = db.Column(db.String, nullable=True) # URL or File Path
     portfolio = db.Column(db.String, nullable=True) # URL or File Path
   
@@ -185,7 +177,7 @@ class FundingApplication(db.Model):
     reason_for_aid = db.Column(db.Text, nullable=True)
 
     # Business Specific Fields
-    concept_note = db.Column(db.Text, nullable=True)
+    concept_note = db.Column(db.String, nullable=True) # URL or File Path
     business_profile = db.Column(db.Text, nullable=True)
 
     #Relationships

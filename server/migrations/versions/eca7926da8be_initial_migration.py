@@ -1,8 +1,8 @@
 """initial migration
 
-Revision ID: fc4623626c39
+Revision ID: eca7926da8be
 Revises: 
-Create Date: 2024-08-12 20:00:11.874680
+Create Date: 2024-08-18 15:17:02.671935
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'fc4623626c39'
+revision = 'eca7926da8be'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -87,12 +87,11 @@ def upgrade():
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('employment_id', sa.Integer(), nullable=False),
-    sa.Column('status', sa.Enum('PENDING', 'IN_REVIEW', 'ACCEPTED', 'REJECTED', name='appstatus'), nullable=False),
     sa.Column('name', sa.String(), nullable=False),
     sa.Column('phone_number', sa.String(), nullable=False),
     sa.Column('email', sa.String(), nullable=False),
-    sa.Column('cover_letter', sa.String(), nullable=False),
-    sa.Column('resume', sa.String(), nullable=False),
+    sa.Column('cover_letter', sa.Text(), nullable=False),
+    sa.Column('resume', sa.String(), nullable=True),
     sa.Column('linkedin', sa.String(), nullable=True),
     sa.Column('portfolio', sa.String(), nullable=True),
     sa.ForeignKeyConstraint(['employment_id'], ['employment.id'], ),
@@ -109,7 +108,7 @@ def upgrade():
     sa.Column('household_income', sa.Integer(), nullable=True),
     sa.Column('number_of_dependents', sa.Integer(), nullable=True),
     sa.Column('reason_for_aid', sa.Text(), nullable=True),
-    sa.Column('concept_note', sa.Text(), nullable=True),
+    sa.Column('concept_note', sa.String(), nullable=True),
     sa.Column('business_profile', sa.Text(), nullable=True),
     sa.ForeignKeyConstraint(['funding_id'], ['funding.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),

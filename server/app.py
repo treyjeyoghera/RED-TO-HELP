@@ -1,12 +1,14 @@
 from flask import Flask, request, jsonify
+from flask import session
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_restful import Api
 from flask_login import LoginManager
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, User, Employment, Category, Application, SocialIntegration, Funding, FundingApplication, Donation, DonationType, PaymentMethod, datetime, AppStatus
+from models import db, User, Employment, Category, Application, SocialIntegration, Funding, FundingApplication, Donation, DonationType, PaymentMethod, datetime
 from auth import initialize_auth_routes
 from flask_cors import CORS
+
 def create_app():
     app = Flask(__name__)
     CORS(app)
@@ -33,6 +35,19 @@ def create_app():
     return app
 
 app = create_app()
+
+# Session management functions
+def get_employment_id_for_user(user_id):
+    return session.get(f'employment_id_{user_id}')
+
+def get_funding_id_for_user(user_id):
+    return session.get(f'funding_id_{user_id}')
+
+def set_employment_id_for_user(user_id, employment_id):
+    session[f'employment_id_{user_id}'] = employment_id
+
+def set_funding_id_for_user(user_id, funding_id):
+    session[f'funding_id_{user_id}'] = funding_id
 
 # User routes
 @app.route('/users', methods=['POST'])
@@ -344,20 +359,24 @@ def delete_social_integration(id):
 @app.route('/applications', methods=['POST'])
 def create_application():
     data = request.get_json()
-    required_fields = ['user_id', 'employment_id', 'status', 'name', 'phone_number', 'email', 'cover_letter', 'resume', 'linkedin', 'portfolio']
+    required_fields = ['name', 'phone_number', 'email', 'cover_letter', 'resume', 'linkedin', 'portfolio']
     
     if not data or not all(key in data for key in required_fields):
         return jsonify({'message': 'Missing required fields!'}), 400
     
-    try:
-        status = AppStatus(data['status'])
-    except ValueError:
-        return jsonify({'message': 'Invalid status value!'}), 400
+    # Retrieve `user_id` from session
+    user_id = session.get('user_id')  # Retrieve user ID from session
+    if not user_id:
+        return jsonify({'message': 'User not logged in!'}), 401
 
+    # Retrieveing `employment_id` from data based on the user's context
+    employment_id = get_employment_id_for_user(user_id)  # function to fetch employment ID
+    if not employment_id:
+        return jsonify({'message': 'Employment ID not found in session!'}), 400
+    
     new_application = Application(
         user_id=data['user_id'],
         employment_id=data['employment_id'],
-        status=status,
         name=data['name'],
         phone_number=data['phone_number'],
         email=data['email'],
@@ -378,7 +397,6 @@ def get_application(application_id):
             'id': application.id,
             'user_id': application.user_id,
             'employment_id': application.employment_id,
-            'status': application.status.value,  # Convert Enum to string
             'name': application.name,
             'phone_number': application.phone_number,
             'email': application.email,
@@ -397,7 +415,6 @@ def get_all_applications():
             'id': app.id,
             'user_id': app.user_id,
             'employment_id': app.employment_id,
-            'status': app.status.value,  # Convert Enum to string
             'name': app.name,
             'phone_number': app.phone_number,
             'email': app.email,
@@ -416,11 +433,6 @@ def update_application(application_id):
     
     data = request.get_json()
     
-    if 'status' in data:
-        try:
-            application.status = AppStatus(data['status'])
-        except ValueError:
-            return jsonify({'message': 'Invalid status value!'}), 400
     if 'user_id' in data:
         application.user_id = data['user_id']
     if 'employment_id' in data:
@@ -537,9 +549,19 @@ def delete_funding(id):
 @app.route('/funding_applications', methods=['POST'])
 def create_funding_application():
     data = request.get_json()
-    if not data or not all(key in data for key in ['user_id', 'funding_id', 'status', 'application_type']):
+    if not data or not all(key in data for key in ['status', 'application_type']):
         return jsonify({'message': 'Missing required fields!'}), 400
+    
+    # Retrieve `user_id` from session
+    user_id = session.get('user_id')  # Example: Retrieve user ID from session
+    if not user_id:
+        return jsonify({'message': 'User not logged in!'}), 401
 
+    # Retrieveing `funding_id` from data based on the user's context
+    funding_id = get_funding_id_for_user(user_id)  # function to fetch funding ID
+    if not funding_id:
+        return jsonify({'message': 'Funding ID not found in session!'}), 400
+    
     new_funding_application = FundingApplication(
         user_id=data['user_id'],
         funding_id=data['funding_id'],

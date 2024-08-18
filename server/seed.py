@@ -1,5 +1,5 @@
 from faker import Faker
-from models import db, User, Employment, Category, Application, SocialIntegration, Funding, FundingApplication,AppStatus, ApplicationStatus, ApplicationType, GrantType, Donation, DonationType, PaymentMethod
+from models import db, User, Employment, Category, Application, SocialIntegration, Funding, FundingApplication, ApplicationStatus, ApplicationType, GrantType, Donation, DonationType, PaymentMethod
 from app import create_app
 import random
 import requests
@@ -133,12 +133,11 @@ def seed_applications(users, employments, n=100):
         application = Application(
             user_id=random.choice(users).id,
             employment_id=random.choice(employments).id,
-            status=random.choice(list(AppStatus)),  # Use enum for status
             name=fake.name(),  # Generate a fake name
             phone_number=fake.phone_number(),  # Generate a fake phone number
             email=fake.email(),  # Generate a fake email
             cover_letter=fake.text(max_nb_chars=200),  # Generate a fake cover letter
-            resume=fake.file_name(extension='pdf'),  # Generate a fake resume filename
+            resume=fake.url(),  # Generate a fake resume URL
             linkedin=fake.url(),  # Generate a fake LinkedIn URL
             portfolio=fake.url()  # Generate a fake portfolio URL
 
@@ -247,7 +246,7 @@ def seed_funding_applications(users, fundings, n=100):
             funding_application.number_of_dependents = random.randint(1, 5)
             funding_application.reason_for_aid = fake.text()
         elif application_type == ApplicationType.BUSINESS:
-            funding_application.concept_note = fake.text()
+            funding_application.concept_note = fake.url()
             funding_application.business_profile = fake.text()
 
         funding_applications.append(funding_application)
