@@ -1,9 +1,10 @@
 from flask import Flask, request, jsonify
 from flask import session
+from flask import Flask, request, jsonify, session, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_restful import Api
-from flask_login import LoginManager
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, User, Employment, Category, Application, SocialIntegration, Funding, FundingApplication, Donation, DonationType, PaymentMethod, datetime
 from auth import initialize_auth_routes
@@ -11,7 +12,7 @@ from flask_cors import CORS
 
 def create_app():
     app = Flask(__name__)
-    CORS(app)
+    CORS(app, supports_credentials=True)  
 
     # Configure your database URI here
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///poverty.db'
@@ -24,6 +25,7 @@ def create_app():
     
     login_manager = LoginManager()
     login_manager.init_app(app)
+    login_manager.login_view = 'login'
 
     @login_manager.user_loader
     def load_user(user_id):
@@ -31,6 +33,8 @@ def create_app():
 
     api = Api(app)
     initialize_auth_routes(api)  # Initialize authentication routes
+    app.register_blueprint(auth)
+
 
     return app
 
@@ -69,6 +73,7 @@ def create_user():
     return jsonify({'message': 'User created successfully!', 'user_id': new_user.id}), 201
 
 @app.route('/users', methods=['GET'])
+@login_required
 def get_users():
     users = User.query.all()
     return jsonify([
@@ -83,6 +88,7 @@ def get_users():
     ]), 200
 
 @app.route('/users/<int:user_id>', methods=['GET'])
+@login_required
 def get_user(user_id):
     user = User.query.get(user_id)
     if user:
@@ -726,6 +732,79 @@ def delete_donation(donation_id):
     db.session.delete(donation)
     db.session.commit()
     return jsonify({"message": "Donation deleted successfully!"}), 200
+
+@app.route('/profile/<int:user_id>', methods=['GET'])
+def get_user_profile(user_id):
+    user = User.query.get(user_id)
+    
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+
+    user_profile = {
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'profile_picture': user.profile_picture,
+        'employments': [
+            {
+                'id': emp.id,
+                'title': emp.title,
+                'description': emp.description,
+                'location': emp.location,
+                'salary_range': emp.salary_range,
+            } for emp in user.employments
+        ] or "N/A",
+        'applications': [
+            {
+                'id': app.id,
+                'employment_id': app.employment_id,
+                'status': app.status.value,
+                'name': app.name,
+                'phone_number': app.phone_number,
+                'email': app.email,
+                'cover_letter': app.cover_letter,
+                'resume': app.resume,
+                'linkedin': app.linkedin,
+                'portfolio': app.portfolio,
+            } for app in user.applications
+        ] or "N/A",
+        'social_integrations': [
+            {
+                'id': si.id,
+                'association_name': si.association_name,
+                'description': si.description,
+            } for si in user.social_integrations
+        ] or "N/A",
+        'funding_applications': [
+            {
+                'id': fa.id,
+                'funding_id': fa.funding_id,
+                'status': fa.status.value,
+                'application_type': fa.application_type.value,
+                'supporting_documents': fa.supporting_documents,
+                'household_income': fa.household_income,
+                'number_of_dependents': fa.number_of_dependents,
+                'reason_for_aid': fa.reason_for_aid,
+                'concept_note': fa.concept_note,
+                'business_profile': fa.business_profile,
+            } for fa in user.funding_applications
+        ] or "N/A",
+        'donations': [
+            {
+                'donation_id': don.donation_id,
+                'donation_type': don.donation_type.value,
+                'name': don.name,
+                'organisation_name': don.organisation_name,
+                'amount': don.amount,
+                'payment_method': don.payment_method.value,
+                'donation_date': don.donation_date.strftime('%Y-%m-%d %H:%M:%S'),
+            } for don in user.donations
+        ] or "N/A"
+    }
+
+    return jsonify(user_profile)
 
 if __name__ == '__main__':
     app.run(debug=True)
