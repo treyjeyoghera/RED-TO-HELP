@@ -33,7 +33,6 @@ def create_app():
 
     api = Api(app)
     initialize_auth_routes(api)  # Initialize authentication routes
-    app.register_blueprint(auth)
 
 
     return app
